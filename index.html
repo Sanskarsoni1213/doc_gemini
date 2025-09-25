@@ -11,6 +11,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- Babel for JSX compilation -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
@@ -24,7 +26,7 @@
 <script type="text/babel">
 window.onload = function() {
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 const App = () => {
   const [view, setView] = useState('login');
@@ -42,15 +44,24 @@ const App = () => {
   const [estimatedWait, setEstimatedWait] = useState(null);
   const [doctorQueue, setDoctorQueue] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [doctorAnalytics, setDoctorAnalytics] = useState(null);
   const [isEmergency, setIsEmergency] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ message: '', type: '' });
   
   const API_BASE_URL = 'http://127.0.0.1:5000/api';
+  const chartRef = useRef(null);
+  const chartInstanceRef = useRef(null);
 
   useEffect(() => {
     fetchDoctors();
     if (user && user.role === 'admin') {
       fetchAnalytics();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && user.role === 'doctor') {
+        fetchDoctorAnalytics();
     }
   }, [user]);
 
@@ -76,6 +87,71 @@ const App = () => {
     return () => clearInterval(intervalId);
   }, [user]);
   
+  // Effect to handle the Chart.js instance
+  useEffect(() => {
+    if (analytics && chartRef.current) {
+        // Destroy old chart if it exists
+        if (chartInstanceRef.current) {
+            chartInstanceRef.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext('2d');
+        const labels = analytics.peak_hours.map(d => d.hour);
+        const data = analytics.peak_hours.map(d => d.count);
+        
+        chartInstanceRef.current = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Patient Count',
+                    data: data,
+                    borderColor: '#8884d8',
+                    backgroundColor: 'rgba(136, 132, 216, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Hour of Day'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Patient Count'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Cleanup function to destroy the chart when the component unmounts
+    return () => {
+        if (chartInstanceRef.current) {
+            chartInstanceRef.current.destroy();
+        }
+    };
+  }, [analytics]);
+
   const showAlert = (message, type) => {
     setAlertMessage({ message, type });
     setTimeout(() => setAlertMessage({ message: '', type: '' }), 3000);
@@ -99,6 +175,7 @@ const App = () => {
           fetchQueuePosition(data.user_id);
         } else if (data.role === 'doctor') {
           fetchDoctorQueue(data.user_id);
+          fetchDoctorAnalytics(data.user_id);
         }
       } else {
         showAlert(data.message, 'error');
@@ -194,6 +271,18 @@ const App = () => {
     }
   };
 
+  const fetchDoctorAnalytics = async (doctorId = user.id) => {
+      try {
+          const response = await fetch(`${API_BASE_URL}/doctor/analytics/${doctorId}`);
+          const data = await response.json();
+          if (response.ok) {
+              setDoctorAnalytics(data);
+          }
+      } catch (error) {
+          console.error('Fetch doctor analytics error:', error);
+      }
+  };
+
   const handleCompleteConsultation = async (queueId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/doctor/complete_consultation`, {
@@ -205,6 +294,7 @@ const App = () => {
       if (response.ok) {
         showAlert('Consultation completed.', 'success');
         fetchDoctorQueue();
+        fetchDoctorAnalytics();
       } else {
         showAlert(data.message, 'error');
       }
@@ -235,6 +325,7 @@ const App = () => {
     setDoctorQueue([]);
     setAnalytics(null);
     setSelectedDoctor(null);
+    setDoctorAnalytics(null);
     showAlert('Logged out successfully.', 'success');
   };
 
@@ -469,44 +560,63 @@ const App = () => {
         </div>
       )}
 
-      <div className="w-full bg-green-50 rounded-2xl shadow-inner border border-green-200 p-6">
-        <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-green-700">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-stethoscope"><path d="M18 12a2 2 0 0 0 0 4"/><path d="M17 20a2 2 0 0 0-2 2H9a2 2 0 0 0-2-2v-4a2 2 0 0 0-2-2h-2"/><path d="M21 12V3a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1Z"/><path d="M10 2a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H10Z"/></svg>
-          <span>My Queue</span>
-        </h2>
-        {doctorQueue.length > 0 ? (
-          <ul className="space-y-4">
-            {doctorQueue.map((patient, index) => (
-              <li key={patient.user_id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between transition-transform duration-200 hover:scale-105">
-                <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 flex items-center justify-center bg-green-200 text-green-800 rounded-full font-bold text-lg">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-800">
-                      {patient.name} {patient.is_emergency && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block text-red-500 ml-1"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 7.76V4.16"/><path d="M15.5 9.24L17.65 6.4"/><path d="M8.5 9.24 6.35 6.4"/></svg>}
+      <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* My Queue */}
+        <div className="bg-green-50 rounded-2xl shadow-inner border border-green-200 p-6">
+          <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-green-700">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-stethoscope"><path d="M18 12a2 2 0 0 0 0 4"/><path d="M17 20a2 2 0 0 0-2 2H9a2 2 0 0 0-2-2v-4a2 2 0 0 0-2-2h-2"/><path d="M21 12V3a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1Z"/><path d="M10 2a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H10Z"/></svg>
+            <span>My Queue</span>
+          </h2>
+          {doctorQueue.length > 0 ? (
+            <ul className="space-y-4">
+              {doctorQueue.map((patient, index) => (
+                <li key={patient.user_id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between transition-transform duration-200 hover:scale-105">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-8 h-8 flex items-center justify-center bg-green-200 text-green-800 rounded-full font-bold text-lg">
+                      {index + 1}
                     </div>
-                    <div className="text-sm text-gray-500">Joined: {new Date(patient.joined_at).toLocaleTimeString()}</div>
+                    <div>
+                      <div className="font-semibold text-gray-800">
+                        {patient.name} {patient.is_emergency && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block text-red-500 ml-1"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 7.76V4.16"/><path d="M15.5 9.24L17.65 6.4"/><path d="M8.5 9.24 6.35 6.4"/></svg>}
+                      </div>
+                      <div className="text-sm text-gray-500">Joined: {new Date(patient.joined_at).toLocaleTimeString()}</div>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => handleCompleteConsultation(patient.queue_id)}
+                    className="py-2 px-4 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors duration-200"
+                  >
+                    <span className="flex items-center space-x-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.5"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <span>Complete</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-center text-lg text-gray-500 p-8">
+              <p>Your queue is currently empty.</p>
+              <p className="text-sm mt-2">Patients will appear here as they join.</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Doctor Analytics */}
+        <div className="p-6 bg-purple-50 rounded-2xl shadow-inner border border-purple-200">
+            <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-purple-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bar-chart"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                <span>My Analytics</span>
+            </h2>
+            <div className="space-y-4">
+                <div className="p-4 bg-white rounded-xl shadow-sm">
+                    <p className="text-md text-gray-500">Total Patients Seen</p>
+                    <p className="text-4xl font-bold text-purple-900">
+                        {doctorAnalytics ? doctorAnalytics.total_patients_seen : '...'}
+                    </p>
                 </div>
-                <button
-                  onClick={() => handleCompleteConsultation(patient.queue_id)}
-                  className="py-2 px-4 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors duration-200"
-                >
-                  <span className="flex items-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.5"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                    <span>Complete</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-center text-lg text-gray-500 p-8">
-            <p>Your queue is currently empty.</p>
-            <p className="text-sm mt-2">Patients will appear here as they join.</p>
-          </div>
-        )}
+            </div>
+        </div>
       </div>
     </div>
   );
@@ -552,10 +662,7 @@ const App = () => {
           <div className="p-6 bg-gray-50 rounded-2xl shadow-inner border border-gray-200">
             <h2 className="text-2xl font-semibold mb-4 text-gray-700">Patient Peak Hours</h2>
             <div className="h-80">
-                <p className="text-center text-gray-500">
-                  Analytics chart is temporarily unavailable due to a library compatibility issue.
-                  Data is still being calculated and stored in the backend.
-                </p>
+                <canvas ref={chartRef}></canvas>
             </div>
           </div>
           

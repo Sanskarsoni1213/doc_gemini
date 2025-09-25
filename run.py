@@ -1,25 +1,26 @@
 # This Flask application serves as the backend for the Doctor-Patient Queue System.
 # It handles user authentication, queue management, and provides analytics.
 
-# To run this, you will need to install Flask, Flask-SQLAlchemy, and Flask-CORS.
-# pip install Flask Flask-SQLAlchemy Flask-CORS
+# To run this, you will need to install Flask and Flask-SQLAlchemy.
+# pip install Flask Flask-SQLAlchemy
 
 import os
 import uuid
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS # Import CORS
+from flask_cors import CORS
 from datetime import datetime, timedelta
 import time
 import random
+from collections import defaultdict
 
 # --- Configuration ---
 basedir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
+# Enable CORS for the entire application to allow frontend communication
+CORS(app) 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-CORS(app) # Enable CORS for the application
 
 db = SQLAlchemy(app)
 
@@ -196,6 +197,12 @@ def get_doctor_queue(doctor_id):
             })
     return jsonify(patients), 200
 
+@app.route('/api/doctor/analytics/<doctor_id>', methods=['GET'])
+def get_doctor_analytics(doctor_id):
+    """Returns analytics for a specific doctor."""
+    total_patients_seen = Consultation.query.filter_by(doctor_id=doctor_id).count()
+    return jsonify({'total_patients_seen': total_patients_seen}), 200
+
 @app.route('/api/doctor/complete_consultation', methods=['POST'])
 def complete_consultation():
     """Marks a consultation as complete and updates historical data."""
@@ -233,13 +240,16 @@ def get_analytics():
     avg_consultation_time = db.session.query(db.func.avg(Consultation.duration_minutes)).scalar()
     avg_consultation_time = round(avg_consultation_time, 2) if avg_consultation_time else 0
 
-    # Simulate peak hours data
-    peak_hours = [
-        {'hour': '9-10 AM', 'count': random.randint(30, 60)},
-        {'hour': '12-1 PM', 'count': random.randint(50, 80)},
-        {'hour': '3-4 PM', 'count': random.randint(40, 70)},
-    ]
-
+    # Get consultation counts per hour of day
+    consultations = Consultation.query.all()
+    hourly_counts = defaultdict(int)
+    for c in consultations:
+        if c.start_time:
+            hour = c.start_time.hour
+            hourly_counts[hour] += 1
+    
+    peak_hours_data = [{'hour': f'{h:02d}:00', 'count': hourly_counts[h]} for h in range(24)]
+    
     # No-show rates - a simple random value for demonstration
     no_show_rate = random.uniform(5, 15)
 
@@ -247,7 +257,7 @@ def get_analytics():
         'total_patients': total_patients,
         'total_doctors': total_doctors,
         'avg_consultation_time': avg_consultation_time,
-        'peak_hours': peak_hours,
+        'peak_hours': peak_hours_data,
         'no_show_rate': round(no_show_rate, 2)
     }), 200
 
