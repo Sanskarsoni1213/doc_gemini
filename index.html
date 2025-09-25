@@ -1,20 +1,30 @@
-// This is a single-file React application for the Smart Doctor-Patient Queue System.
-// It includes all components, logic, and styling within one file.
-// It uses Tailwind CSS for styling and Recharts for data visualization.
-// It is designed to work with the Python Flask backend.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Doctor-Patient Queue System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 antialiased">
 
-// To run this, you must have the Python backend running on http://127.0.0.1:5000
-// and then open this single file in your browser.
+<div id="root"></div>
 
-// The app handles three main user roles: Patient, Doctor, and Admin.
+<script type="text/babel">
+window.onload = function() {
 
-import React, { useState, useEffect } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
-import {
-  Hand, Stethoscope, Gauge, CheckCircle, Clock, User, LogOut, HeartPulse, Search
-} from 'lucide-react';
+const { useState, useEffect } = React;
 
 const App = () => {
   const [view, setView] = useState('login');
@@ -74,7 +84,7 @@ const App = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-  const response = await fetch(`${API_BASE_URL}/login`, {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -102,7 +112,7 @@ const App = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-  const response = await fetch(`${API_BASE_URL}/register`, {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role, firstName, lastName, specialty }),
@@ -122,7 +132,7 @@ const App = () => {
 
   const fetchDoctors = async () => {
     try {
-  const response = await fetch(`${API_BASE_URL}/doctors`);
+      const response = await fetch(`${API_BASE_URL}/doctors`);
       const data = await response.json();
       if (response.ok) {
         setDoctors(data);
@@ -138,7 +148,7 @@ const App = () => {
       return;
     }
     try {
-  const response = await fetch(`${API_BASE_URL}/queue/join`, {
+      const response = await fetch(`${API_BASE_URL}/queue/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id, doctor_id: selectedDoctor.id, is_emergency: isEmergency }),
@@ -158,7 +168,7 @@ const App = () => {
 
   const fetchQueuePosition = async (userId = user.id) => {
     try {
-  const response = await fetch(`${API_BASE_URL}/queue/position/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/queue/position/${userId}`);
       if (response.status === 404) {
         setQueuePosition(0); // Not in queue
         setEstimatedWait(null);
@@ -174,7 +184,7 @@ const App = () => {
 
   const fetchDoctorQueue = async (doctorId = user.id) => {
     try {
-  const response = await fetch(`${API_BASE_URL}/doctor/queue/${doctorId}`);
+      const response = await fetch(`${API_BASE_URL}/doctor/queue/${doctorId}`);
       const data = await response.json();
       if (response.ok) {
         setDoctorQueue(data);
@@ -186,7 +196,7 @@ const App = () => {
 
   const handleCompleteConsultation = async (queueId) => {
     try {
-  const response = await fetch(`${API_BASE_URL}/doctor/complete_consultation`, {
+      const response = await fetch(`${API_BASE_URL}/doctor/complete_consultation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ queue_id: queueId }),
@@ -205,7 +215,7 @@ const App = () => {
 
   const fetchAnalytics = async () => {
     try {
-  const response = await fetch(`${API_BASE_URL}/admin/analytics`);
+      const response = await fetch(`${API_BASE_URL}/admin/analytics`);
       const data = await response.json();
       if (response.ok) {
         setAnalytics(data);
@@ -347,7 +357,7 @@ const App = () => {
       <div className="w-full flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-indigo-800">Patient Dashboard</h1>
         <button onClick={handleLogout} className="flex items-center space-x-2 py-2 px-4 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">
-          <LogOut size={20} />
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
           <span>Logout</span>
         </button>
       </div>
@@ -362,7 +372,7 @@ const App = () => {
         {/* Find a Doctor */}
         <div className="p-6 bg-indigo-50 rounded-2xl shadow-inner border border-indigo-200">
           <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-indigo-700">
-            <Search size={24} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             <span>Find a Doctor</span>
           </h2>
           <div className="space-y-4">
@@ -392,7 +402,7 @@ const App = () => {
                     className="h-5 w-5 text-red-600 rounded border-gray-300 focus:ring-red-500"
                   />
                   <label htmlFor="emergency-checkbox" className="text-md text-red-600 font-semibold">
-                    <HeartPulse size={20} className="inline-block mr-1"/>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 7.76V4.16"/><path d="M15.5 9.24L17.65 6.4"/><path d="M8.5 9.24 6.35 6.4"/></svg>
                     Mark as Emergency
                   </label>
                 </div>
@@ -404,7 +414,7 @@ const App = () => {
               disabled={!selectedDoctor || queuePosition > 0}
             >
               <span className="flex items-center justify-center space-x-2">
-                <Hand size={20} />
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-hand"><path d="M18 11V5a2 2 0 0 0-2-2L8 14.5V18l4.24-4.24M19 14v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h2.5"/><path d="M13 14h1.5a2 2 0 0 1 2 2v2"/><path d="M15 10v-.5a2.5 2.5 0 0 1 5 0V11"/></svg>
                 <span>Join Queue</span>
               </span>
             </button>
@@ -414,7 +424,7 @@ const App = () => {
         {/* Live Queue Status */}
         <div className="p-6 bg-blue-50 rounded-2xl shadow-inner border border-blue-200">
           <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-blue-700">
-            <Clock size={24} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-clock"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span>Live Queue Status</span>
           </h2>
           {queuePosition > 0 ? (
@@ -448,7 +458,7 @@ const App = () => {
       <div className="w-full flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-indigo-800">Doctor Dashboard</h1>
         <button onClick={handleLogout} className="flex items-center space-x-2 py-2 px-4 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">
-          <LogOut size={20} />
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
           <span>Logout</span>
         </button>
       </div>
@@ -461,7 +471,7 @@ const App = () => {
 
       <div className="w-full bg-green-50 rounded-2xl shadow-inner border border-green-200 p-6">
         <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-green-700">
-          <Stethoscope size={24} />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-stethoscope"><path d="M18 12a2 2 0 0 0 0 4"/><path d="M17 20a2 2 0 0 0-2 2H9a2 2 0 0 0-2-2v-4a2 2 0 0 0-2-2h-2"/><path d="M21 12V3a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1Z"/><path d="M10 2a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H10Z"/></svg>
           <span>My Queue</span>
         </h2>
         {doctorQueue.length > 0 ? (
@@ -474,7 +484,7 @@ const App = () => {
                   </div>
                   <div>
                     <div className="font-semibold text-gray-800">
-                      {patient.name} {patient.is_emergency && <HeartPulse size={16} className="inline-block text-red-500 ml-1" />}
+                      {patient.name} {patient.is_emergency && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block text-red-500 ml-1"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 7.76V4.16"/><path d="M15.5 9.24L17.65 6.4"/><path d="M8.5 9.24 6.35 6.4"/></svg>}
                     </div>
                     <div className="text-sm text-gray-500">Joined: {new Date(patient.joined_at).toLocaleTimeString()}</div>
                   </div>
@@ -484,7 +494,7 @@ const App = () => {
                   className="py-2 px-4 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors duration-200"
                 >
                   <span className="flex items-center space-x-2">
-                    <CheckCircle size={16} />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.5"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     <span>Complete</span>
                   </span>
                 </button>
@@ -506,7 +516,7 @@ const App = () => {
       <div className="w-full flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-indigo-800">Admin Dashboard</h1>
         <button onClick={handleLogout} className="flex items-center space-x-2 py-2 px-4 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">
-          <LogOut size={20} />
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
           <span>Logout</span>
         </button>
       </div>
@@ -517,21 +527,21 @@ const App = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-6 bg-purple-50 rounded-xl shadow-inner border border-purple-200">
               <div className="flex items-center space-x-2 text-purple-700 mb-2">
-                <User size={24} />
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span className="text-lg font-semibold">Total Patients</span>
               </div>
               <div className="text-4xl font-bold text-purple-900">{analytics.total_patients}</div>
             </div>
             <div className="p-6 bg-teal-50 rounded-xl shadow-inner border border-teal-200">
               <div className="flex items-center space-x-2 text-teal-700 mb-2">
-                <Stethoscope size={24} />
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-stethoscope"><path d="M18 12a2 2 0 0 0 0 4"/><path d="M17 20a2 2 0 0 0-2 2H9a2 2 0 0 0-2-2v-4a2 2 0 0 0-2-2h-2"/><path d="M21 12V3a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1Z"/><path d="M10 2a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H10Z"/></svg>
                 <span className="text-lg font-semibold">Total Doctors</span>
               </div>
               <div className="text-4xl font-bold text-teal-900">{analytics.total_doctors}</div>
             </div>
             <div className="p-6 bg-pink-50 rounded-xl shadow-inner border border-pink-200">
               <div className="flex items-center space-x-2 text-pink-700 mb-2">
-                <Clock size={24} />
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-clock"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 <span className="text-lg font-semibold">Avg. Consult Time</span>
               </div>
               <div className="text-4xl font-bold text-pink-900">{analytics.avg_consultation_time} min</div>
@@ -542,23 +552,17 @@ const App = () => {
           <div className="p-6 bg-gray-50 rounded-2xl shadow-inner border border-gray-200">
             <h2 className="text-2xl font-semibold mb-4 text-gray-700">Patient Peak Hours</h2>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analytics.peak_hours}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="count" stroke="#8884d8" name="Patient Count" activeDot={{ r: 8 }} />
-                </LineChart>
-              </ResponsiveContainer>
+                <p className="text-center text-gray-500">
+                  Analytics chart is temporarily unavailable due to a library compatibility issue.
+                  Data is still being calculated and stored in the backend.
+                </p>
             </div>
           </div>
           
           {/* No-Show Rate */}
           <div className="p-6 bg-red-50 rounded-2xl shadow-inner border border-red-200">
             <h2 className="flex items-center space-x-2 text-2xl font-semibold text-red-700">
-              <Gauge size={24} />
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-gauge"><path d="m12 14.5 1.4-1.4"/><path d="M15 15.5 16.5 17"/><path d="M19 12h2"/><path d="M12 19v2"/><path d="M7.76 16.24 6.36 17.64"/><path d="M4 12H2"/><path d="M6.34 6.34 7.76 7.76"/><circle cx="12" cy="12" r="10"/></svg>
               <span>No-Show Rate</span>
             </h2>
             <p className="text-4xl font-bold text-red-900 mt-2">{analytics.no_show_rate}%</p>
@@ -589,20 +593,20 @@ const App = () => {
         return renderLogin();
     }
   };
-
+  
   return (
-    <div className="min-h-screen bg-gray-100 font-sans p-4 flex items-center justify-center antialiased">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-      `}</style>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
-      <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
-
+    <div className="min-h-screen flex items-center justify-center p-4">
       {renderContent()}
     </div>
   );
-};
 
-export default App;
+};
+const container = document.getElementById('root');
+const root = ReactDOM.createRoot(container);
+root.render(<App />);
+
+};
+</script>
+
+</body>
+</html>

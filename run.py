@@ -53,7 +53,7 @@ class Queue(db.Model):
     is_emergency = db.Column(db.Boolean, default=False)
 
     user = db.relationship('User', foreign_keys=[user_id], backref='queue_entries')
-    doctor = db.relationship('User', foreigns_keys=[doctor_id], backref='doctor_queues')
+    doctor = db.relationship('User', foreign_keys=[doctor_id], backref='doctor_queues')
 
 class Consultation(db.Model):
     """Records historical consultation data for analytics and AI estimation."""
