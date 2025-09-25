@@ -1,0 +1,608 @@
+// This is a single-file React application for the Smart Doctor-Patient Queue System.
+// It includes all components, logic, and styling within one file.
+// It uses Tailwind CSS for styling and Recharts for data visualization.
+// It is designed to work with the Python Flask backend.
+
+// To run this, you must have the Python backend running on http://127.0.0.1:5000
+// and then open this single file in your browser.
+
+// The app handles three main user roles: Patient, Doctor, and Admin.
+
+import React, { useState, useEffect } from 'react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
+import {
+  Hand, Stethoscope, Gauge, CheckCircle, Clock, User, LogOut, HeartPulse, Search
+} from 'lucide-react';
+
+const App = () => {
+  const [view, setView] = useState('login');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [role, setRole] = useState('patient');
+  const [specialty, setSpecialty] = useState('');
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [queuePosition, setQueuePosition] = useState(null);
+  const [estimatedWait, setEstimatedWait] = useState(null);
+  const [doctorQueue, setDoctorQueue] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [alertMessage, setAlertMessage] = useState({ message: '', type: '' });
+  
+  const API_BASE_URL = 'http://127.0.0.1:5000/api';
+
+  useEffect(() => {
+    fetchDoctors();
+    if (user && user.role === 'admin') {
+      fetchAnalytics();
+    }
+  }, [user]);
+
+  // Polling for real-time queue position
+  useEffect(() => {
+    let intervalId;
+    if (user && user.role === 'patient' && queuePosition !== null) {
+      intervalId = setInterval(() => {
+        fetchQueuePosition();
+      }, 5000); // Poll every 5 seconds
+    }
+    return () => clearInterval(intervalId);
+  }, [user, queuePosition]);
+
+  // Polling for doctor's queue
+  useEffect(() => {
+    let intervalId;
+    if (user && user.role === 'doctor') {
+      intervalId = setInterval(() => {
+        fetchDoctorQueue();
+      }, 5000);
+    }
+    return () => clearInterval(intervalId);
+  }, [user]);
+  
+  const showAlert = (message, type) => {
+    setAlertMessage({ message, type });
+    setTimeout(() => setAlertMessage({ message: '', type: '' }), 3000);
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+  const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setIsLoggedIn(true);
+        setUser({ id: data.user_id, role: data.role });
+        setView(data.role);
+        showAlert('Login successful!', 'success');
+        if (data.role === 'patient') {
+          fetchQueuePosition(data.user_id);
+        } else if (data.role === 'doctor') {
+          fetchDoctorQueue(data.user_id);
+        }
+      } else {
+        showAlert(data.message, 'error');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      showAlert('An error occurred during login.', 'error');
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    try {
+  const response = await fetch(`${API_BASE_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role, firstName, lastName, specialty }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        showAlert('Registration successful! Please log in.', 'success');
+        setView('login');
+      } else {
+        showAlert(data.message, 'error');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      showAlert('An error occurred during registration.', 'error');
+    }
+  };
+
+  const fetchDoctors = async () => {
+    try {
+  const response = await fetch(`${API_BASE_URL}/doctors`);
+      const data = await response.json();
+      if (response.ok) {
+        setDoctors(data);
+      }
+    } catch (error) {
+      console.error('Fetch doctors error:', error);
+    }
+  };
+
+  const handleJoinQueue = async () => {
+    if (!selectedDoctor) {
+      showAlert('Please select a doctor to join the queue.', 'error');
+      return;
+    }
+    try {
+  const response = await fetch(`${API_BASE_URL}/queue/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, doctor_id: selectedDoctor.id, is_emergency: isEmergency }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        fetchQueuePosition(user.id);
+        showAlert('Successfully joined the queue.', 'success');
+      } else {
+        showAlert(data.message, 'error');
+      }
+    } catch (error) {
+      console.error('Join queue error:', error);
+      showAlert('An error occurred.', 'error');
+    }
+  };
+
+  const fetchQueuePosition = async (userId = user.id) => {
+    try {
+  const response = await fetch(`${API_BASE_URL}/queue/position/${userId}`);
+      if (response.status === 404) {
+        setQueuePosition(0); // Not in queue
+        setEstimatedWait(null);
+      } else if (response.ok) {
+        const data = await response.json();
+        setQueuePosition(data.position);
+        setEstimatedWait(data.estimated_wait_minutes);
+      }
+    } catch (error) {
+      console.error('Fetch queue position error:', error);
+    }
+  };
+
+  const fetchDoctorQueue = async (doctorId = user.id) => {
+    try {
+  const response = await fetch(`${API_BASE_URL}/doctor/queue/${doctorId}`);
+      const data = await response.json();
+      if (response.ok) {
+        setDoctorQueue(data);
+      }
+    } catch (error) {
+      console.error('Fetch doctor queue error:', error);
+    }
+  };
+
+  const handleCompleteConsultation = async (queueId) => {
+    try {
+  const response = await fetch(`${API_BASE_URL}/doctor/complete_consultation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queue_id: queueId }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        showAlert('Consultation completed.', 'success');
+        fetchDoctorQueue();
+      } else {
+        showAlert(data.message, 'error');
+      }
+    } catch (error) {
+      console.error('Complete consultation error:', error);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+  const response = await fetch(`${API_BASE_URL}/admin/analytics`);
+      const data = await response.json();
+      if (response.ok) {
+        setAnalytics(data);
+      }
+    } catch (error) {
+      console.error('Fetch analytics error:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUser(null);
+    setEmail('');
+    setPassword('');
+    setView('login');
+    setQueuePosition(null);
+    setDoctorQueue([]);
+    setAnalytics(null);
+    setSelectedDoctor(null);
+    showAlert('Logged out successfully.', 'success');
+  };
+
+  const renderLogin = () => (
+    <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-xl w-full max-w-md">
+      <h1 className="text-3xl font-bold mb-4 text-center text-indigo-800">Welcome to HealthQueue</h1>
+      <p className="text-center text-gray-600 mb-8">Login or register to manage your appointments and queues.</p>
+      
+      {alertMessage.message && (
+        <div className={`p-4 mb-4 text-sm rounded-lg ${alertMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} role="alert">
+          {alertMessage.message}
+        </div>
+      )}
+
+      <form onSubmit={handleLogin} className="w-full space-y-4">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <button type="submit" className="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200">
+          Login
+        </button>
+      </form>
+      <div className="mt-6 flex items-center w-full">
+        <hr className="flex-grow border-t border-gray-300" />
+        <span className="mx-4 text-gray-500">OR</span>
+        <hr className="flex-grow border-t border-gray-300" />
+      </div>
+      <button onClick={() => setView('register')} className="w-full mt-6 py-3 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 transition-colors duration-200">
+        Create an Account
+      </button>
+    </div>
+  );
+
+  const renderRegister = () => (
+    <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-xl w-full max-w-lg">
+      <h1 className="text-3xl font-bold mb-4 text-center text-indigo-800">Create an Account</h1>
+      <p className="text-center text-gray-600 mb-8">Join our system as a patient, doctor, or admin.</p>
+      
+      {alertMessage.message && (
+        <div className={`p-4 mb-4 text-sm rounded-lg ${alertMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} role="alert">
+          {alertMessage.message}
+        </div>
+      )}
+
+      <form onSubmit={handleRegister} className="w-full space-y-4">
+        <div className="flex space-x-4">
+          <input
+            type="text"
+            placeholder="First Name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+          />
+          <input
+            type="text"
+            placeholder="Last Name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-3 border border-gray-300 rounded-lg"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full p-3 border border-gray-300 rounded-lg"
+        />
+        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <label className="text-gray-600">I am a:</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full sm:w-auto p-3 border border-gray-300 rounded-lg"
+          >
+            <option value="patient">Patient</option>
+            <option value="doctor">Doctor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        {role === 'doctor' && (
+          <input
+            type="text"
+            placeholder="Specialty (e.g., Cardiology)"
+            value={specialty}
+            onChange={(e) => setSpecialty(e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+          />
+        )}
+        <button type="submit" className="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200">
+          Register
+        </button>
+      </form>
+      <button onClick={() => setView('login')} className="mt-6 text-indigo-600 hover:text-indigo-800 transition-colors duration-200">
+        Already have an account? Login here.
+      </button>
+    </div>
+  );
+
+  const renderPatientDashboard = () => (
+    <div className="w-full max-w-4xl p-8 bg-white rounded-2xl shadow-xl flex flex-col items-center">
+      <div className="w-full flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-indigo-800">Patient Dashboard</h1>
+        <button onClick={handleLogout} className="flex items-center space-x-2 py-2 px-4 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">
+          <LogOut size={20} />
+          <span>Logout</span>
+        </button>
+      </div>
+
+      {alertMessage.message && (
+        <div className={`w-full p-4 mb-4 text-sm rounded-lg ${alertMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} role="alert">
+          {alertMessage.message}
+        </div>
+      )}
+      
+      <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Find a Doctor */}
+        <div className="p-6 bg-indigo-50 rounded-2xl shadow-inner border border-indigo-200">
+          <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-indigo-700">
+            <Search size={24} />
+            <span>Find a Doctor</span>
+          </h2>
+          <div className="space-y-4">
+            {doctors.map(doc => (
+              <div
+                key={doc.id}
+                onClick={() => setSelectedDoctor(doc)}
+                className={`p-4 rounded-xl cursor-pointer transition-transform duration-200 ease-in-out transform hover:scale-105 ${selectedDoctor?.id === doc.id ? 'bg-indigo-200 ring-2 ring-indigo-500' : 'bg-white shadow-sm hover:bg-gray-50'}`}
+              >
+                <div className="font-semibold text-gray-800">{doc.first_name} {doc.last_name}</div>
+                <div className="text-sm text-gray-500">{doc.specialty}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 flex flex-col space-y-4">
+            {selectedDoctor && (
+              <>
+                <div className="text-center text-md font-medium text-gray-700">
+                  You have selected <span className="text-indigo-600 font-bold">{selectedDoctor.first_name} {selectedDoctor.last_name}</span>.
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="emergency-checkbox"
+                    checked={isEmergency}
+                    onChange={(e) => setIsEmergency(e.target.checked)}
+                    className="h-5 w-5 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                  />
+                  <label htmlFor="emergency-checkbox" className="text-md text-red-600 font-semibold">
+                    <HeartPulse size={20} className="inline-block mr-1"/>
+                    Mark as Emergency
+                  </label>
+                </div>
+              </>
+            )}
+            <button
+              onClick={handleJoinQueue}
+              className="py-3 px-4 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors duration-200 disabled:opacity-50"
+              disabled={!selectedDoctor || queuePosition > 0}
+            >
+              <span className="flex items-center justify-center space-x-2">
+                <Hand size={20} />
+                <span>Join Queue</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Live Queue Status */}
+        <div className="p-6 bg-blue-50 rounded-2xl shadow-inner border border-blue-200">
+          <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-blue-700">
+            <Clock size={24} />
+            <span>Live Queue Status</span>
+          </h2>
+          {queuePosition > 0 ? (
+            <div className="text-center space-y-4">
+              <div className="text-6xl font-extrabold text-blue-600 animate-pulse">{queuePosition}</div>
+              <p className="text-xl font-medium text-gray-700">
+                You are currently in position <span className="font-bold text-blue-600">{queuePosition}</span> in the queue.
+              </p>
+              {estimatedWait !== null && (
+                <p className="text-lg text-gray-500 mt-2">
+                  Estimated wait time: <span className="font-semibold text-blue-600">{estimatedWait}</span> minutes.
+                </p>
+              )}
+              <div className="text-sm text-gray-400 mt-4">
+                We'll notify you when your turn is near. This page automatically updates.
+              </div>
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-lg font-medium text-gray-500">You are not in a queue yet.</p>
+              <p className="text-sm text-gray-400 mt-2">Please select a doctor and join a queue.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDoctorDashboard = () => (
+    <div className="w-full max-w-4xl p-8 bg-white rounded-2xl shadow-xl flex flex-col items-center">
+      <div className="w-full flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-indigo-800">Doctor Dashboard</h1>
+        <button onClick={handleLogout} className="flex items-center space-x-2 py-2 px-4 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">
+          <LogOut size={20} />
+          <span>Logout</span>
+        </button>
+      </div>
+
+      {alertMessage.message && (
+        <div className={`w-full p-4 mb-4 text-sm rounded-lg ${alertMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} role="alert">
+          {alertMessage.message}
+        </div>
+      )}
+
+      <div className="w-full bg-green-50 rounded-2xl shadow-inner border border-green-200 p-6">
+        <h2 className="flex items-center space-x-2 text-2xl font-semibold mb-4 text-green-700">
+          <Stethoscope size={24} />
+          <span>My Queue</span>
+        </h2>
+        {doctorQueue.length > 0 ? (
+          <ul className="space-y-4">
+            {doctorQueue.map((patient, index) => (
+              <li key={patient.user_id} className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between transition-transform duration-200 hover:scale-105">
+                <div className="flex items-center space-x-4">
+                  <div className="w-8 h-8 flex items-center justify-center bg-green-200 text-green-800 rounded-full font-bold text-lg">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-800">
+                      {patient.name} {patient.is_emergency && <HeartPulse size={16} className="inline-block text-red-500 ml-1" />}
+                    </div>
+                    <div className="text-sm text-gray-500">Joined: {new Date(patient.joined_at).toLocaleTimeString()}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleCompleteConsultation(patient.queue_id)}
+                  className="py-2 px-4 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition-colors duration-200"
+                >
+                  <span className="flex items-center space-x-2">
+                    <CheckCircle size={16} />
+                    <span>Complete</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-center text-lg text-gray-500 p-8">
+            <p>Your queue is currently empty.</p>
+            <p className="text-sm mt-2">Patients will appear here as they join.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderAdminDashboard = () => (
+    <div className="w-full max-w-4xl p-8 bg-white rounded-2xl shadow-xl flex flex-col items-center">
+      <div className="w-full flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-indigo-800">Admin Dashboard</h1>
+        <button onClick={handleLogout} className="flex items-center space-x-2 py-2 px-4 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">
+          <LogOut size={20} />
+          <span>Logout</span>
+        </button>
+      </div>
+      
+      {analytics ? (
+        <div className="w-full space-y-8">
+          {/* Main Analytics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 bg-purple-50 rounded-xl shadow-inner border border-purple-200">
+              <div className="flex items-center space-x-2 text-purple-700 mb-2">
+                <User size={24} />
+                <span className="text-lg font-semibold">Total Patients</span>
+              </div>
+              <div className="text-4xl font-bold text-purple-900">{analytics.total_patients}</div>
+            </div>
+            <div className="p-6 bg-teal-50 rounded-xl shadow-inner border border-teal-200">
+              <div className="flex items-center space-x-2 text-teal-700 mb-2">
+                <Stethoscope size={24} />
+                <span className="text-lg font-semibold">Total Doctors</span>
+              </div>
+              <div className="text-4xl font-bold text-teal-900">{analytics.total_doctors}</div>
+            </div>
+            <div className="p-6 bg-pink-50 rounded-xl shadow-inner border border-pink-200">
+              <div className="flex items-center space-x-2 text-pink-700 mb-2">
+                <Clock size={24} />
+                <span className="text-lg font-semibold">Avg. Consult Time</span>
+              </div>
+              <div className="text-4xl font-bold text-pink-900">{analytics.avg_consultation_time} min</div>
+            </div>
+          </div>
+          
+          {/* Peak Hours Chart */}
+          <div className="p-6 bg-gray-50 rounded-2xl shadow-inner border border-gray-200">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-700">Patient Peak Hours</h2>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={analytics.peak_hours}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="count" stroke="#8884d8" name="Patient Count" activeDot={{ r: 8 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          {/* No-Show Rate */}
+          <div className="p-6 bg-red-50 rounded-2xl shadow-inner border border-red-200">
+            <h2 className="flex items-center space-x-2 text-2xl font-semibold text-red-700">
+              <Gauge size={24} />
+              <span>No-Show Rate</span>
+            </h2>
+            <p className="text-4xl font-bold text-red-900 mt-2">{analytics.no_show_rate}%</p>
+            <p className="text-gray-500 mt-1">Percentage of patients who missed their consultation.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center p-8 text-gray-500">
+          <p>Loading analytics data...</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (view) {
+      case 'login':
+        return renderLogin();
+      case 'register':
+        return renderRegister();
+      case 'patient':
+        return renderPatientDashboard();
+      case 'doctor':
+        return renderDoctorDashboard();
+      case 'admin':
+        return renderAdminDashboard();
+      default:
+        return renderLogin();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 font-sans p-4 flex items-center justify-center antialiased">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+      `}</style>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+      <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
+
+      {renderContent()}
+    </div>
+  );
+};
+
+export default App;
